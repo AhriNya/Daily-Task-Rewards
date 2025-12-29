@@ -1,4 +1,4 @@
-Bing Auto-Search & Reading Auditor (V48.14)
+Bing Auto-Search & Reading Auditor 
 一个专为 Bing 打造的高级自动化搜索与模拟审计工具。采用极致的 Glassmorphism（毛玻璃）设计语言，结合拟人化操作逻辑，在提升搜索活跃度的同时，提供丝滑的用户体验。
 
 ✨ 核心特性
