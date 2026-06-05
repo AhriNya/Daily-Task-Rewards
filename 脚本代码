@@ -229,7 +229,7 @@
             container.id = 'bot-container';
 
             container.innerHTML = '<div class="bot-launcher" id="bot-launch-btn" title="启动自动搜索">' +
-                '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+                '<img alt="必应" decoding="async" loading="lazy" class="text-transparent" width="32" height="32" src="https://bing.com/th?id=OMR.MicrosoftProducts.Bing.svg&amp;pid=Rewards&amp;qlt=100&amp;r=0">' +
                 '<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>' +
                 '</svg>' +
                 '</div>' +
