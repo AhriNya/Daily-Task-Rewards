@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bing 自动搜索
 // @namespace    http://tampermonkey.net/
-// @version      5.0
-// @description  液态玻璃UI，Siri风格全息流光波浪，丝滑进度条
+// @version      6.0
+// @description  UI升级，全息流光波浪，丝滑进度条，日志记录优化
 // @author       Gemini Assistant (Final Fix)
 // @match        https://www.bing.com/*
 // @match        https://cn.bing.com/*
