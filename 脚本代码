@@ -12,6 +12,8 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @run-at       document-end
+// @downloadURL https://update.greasyfork.org/scripts/560612/Bing%20%E8%87%AA%E5%8A%A8%E6%90%9C%E7%B4%A2.user.js
+// @updateURL https://update.greasyfork.org/scripts/560612/Bing%20%E8%87%AA%E5%8A%A8%E6%90%9C%E7%B4%A2.meta.js
 // ==/UserScript==
 
 (function() {
@@ -57,7 +59,7 @@
         backupSuffixes: [" 评测", " 分析", " 指南", " 教程", " 报告", " 攻略", " 对比", " 排名",
             " 购买建议", " 使用技巧", " 入门指南", " 进阶教程", " 深度分析", " 全面解读",
             " 用户体验", " 效果验证", " 质量评估", " 安全检测", " 性能测试", " 功能解析",
-            " 2025趋势", " 市场前景", " 投资价值", " 性价比", " 竞品分析",
+            " 2026趋势", " 市场前景", " 投资价值", " 性价比", " 竞品分析",
             " 新手教程", " 实战案例", " 成功经验", " 常见问题", " 解决方案",
             " 技术原理", " 工作机制", " 优缺点", " 品牌对比", " 产品对比",
             " 创新点", " 突破技术", " 发展历程", " 技术演进", " 市场份额",
@@ -599,7 +601,7 @@
 
                 const logs = GM_getValue(KEYS.LOGS, []);
                 logs.push({
-                    time: new Date().toLocaleTimeString(),
+                    time: new Date().toLocaleString(),
                     raw: targetRaw,
                     suffix: suffixObj.text,
                     suffixType: suffixObj.type,
