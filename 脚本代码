@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bing 自动搜索
 // @namespace    http://tampermonkey.net/
-// @version      6.0
-// @description  UI升级，全息流光波浪，丝滑进度条，日志记录优化
+// @version      7.0
+// @description  UI升级，日志记录优化，配色优化
 // @author       Gemini Assistant (Final Fix)
 // @match        https://www.bing.com/*
 // @match        https://cn.bing.com/*
@@ -177,6 +177,15 @@
 
     const UI = {
         waveCanvas: null,
+               getSourceColor(sourceName) {
+        if (!sourceName) return { color: '#007AFF', bg: 'rgba(0,120,212,0.1)', border: 'rgba(0,120,212,0.2)' };
+        if (sourceName.includes('抖音')) return { color: '#36454F', bg: 'rgba(54,69,79,0.1)', border: 'rgba(54,69,79,0.2)' };
+        if (sourceName.includes('微博')) return { color: '#F4BB44', bg: 'rgba(244,187,68,0.1)', border: 'rgba(244,187,68,0.2)' };
+        if (sourceName.includes('头条')) return { color: '#E34234', bg: 'rgba(227,66,52,0.1)', border: 'rgba(227,66,52,0.2)' };
+        if (sourceName.includes('百度') && sourceName.includes('备用')) return { color: '#89CFF0', bg: 'rgba(137,207,240,0.1)', border: 'rgba(137,207,240,0.2)' };
+        if (sourceName.includes('百度')) return { color: '#00BFFF', bg: 'rgba(0,191,255,0.1)', border: 'rgba(0,191,255,0.2)' };
+        return { color: '#007AFF', bg: 'rgba(0,120,212,0.1)', border: 'rgba(0,120,212,0.2)' };
+    },
         wavePath: null,
         waveAnimId: null,
         waveDecayTimer: null,
@@ -194,7 +203,7 @@
                 #bot-container { position: fixed; bottom: 30px; left: 30px; z-index: 2147483647; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
                 .bot-launcher { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(145deg, rgba(255,255,255,0.8), rgba(255,255,255,0.2)); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(255,255,255,0.8); box-shadow: 0 10px 30px rgba(0,120,212,0.25), inset 0 2px 4px rgba(255,255,255,0.9), inset 0 -2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; cursor: pointer; color: #007AFF; opacity: 0.3; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
                 .bot-launcher:hover { opacity: 1; transform: scale(1.05) translateY(-2px); box-shadow: 0 15px 40px rgba(0,120,212,0.35), inset 0 2px 4px rgba(255,255,255,0.9); }
-                .glass-card { display: none; width: 320px; background: linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.3) 100%); backdrop-filter: blur(40px) saturate(180%); -webkit-backdrop-filter: blur(40px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 32px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.05), inset 0 1px 1px rgba(255,255,255,0.8), inset 0 -1px 1px rgba(255,255,255,0.2); position: relative; overflow: hidden; }
+                .glass-card { display: none; width: 320px; background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 100%); backdrop-filter: blur(40px) saturate(180%); -webkit-backdrop-filter: blur(40px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 32px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.05), inset 0 1px 1px rgba(255,255,255,0.8), inset 0 -1px 1px rgba(255,255,255,0.2); position: relative; overflow: hidden; }
                 .glass-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.5) 0%, transparent 40%); pointer-events: none; animation: liquidShine 10s ease-in-out infinite alternate; }
                 @keyframes liquidShine { 0% { transform: translate(0, 0) rotate(0deg); } 100% { transform: translate(5%, 5%) rotate(2deg); } }
                 .status-badge { font-size: 10px; font-weight: 700; padding: 6px 14px; border-radius: 50px; background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.6); box-shadow: inset 0 1px 2px rgba(255,255,255,0.8); color: #005a9e; backdrop-filter: blur(5px); position: relative; z-index: 1; }
@@ -214,8 +223,8 @@
                 .action-btn { flex: 1; border: 1px solid rgba(255,255,255,0.6); padding: 12px; border-radius: 16px; font-size: 11px; font-weight: 700; cursor: pointer; background: linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.3) 100%); color: #1d1d1f; box-shadow: 0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.8); transition: all 0.2s ease; backdrop-filter: blur(10px); }
                 .action-btn:hover { background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.5) 100%); transform: translateY(-1px); }
                 .action-btn:active { transform: scale(0.96) translateY(0); box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
-                #b-skip { background: linear-gradient(180deg, rgba(0,122,255,0.9) 0%, rgba(0,100,210,0.9) 100%); color: white; border-color: rgba(255,255,255,0.3); box-shadow: 0 4px 12px rgba(0,122,255,0.3), inset 0 1px 0 rgba(255,255,255,0.3); }
-                #b-stop { background: linear-gradient(180deg, rgba(255,59,48,0.9) 0%, rgba(210,40,30,0.9) 100%); color: white; border-color: rgba(255,255,255,0.3); box-shadow: 0 4px 12px rgba(255,59,48,0.3), inset 0 1px 0 rgba(255,255,255,0.3); }
+                #b-skip { background: linear-gradient(135deg, rgba(137,247,254,0.5) 0%, rgba(102,166,255,0.5) 100%); color: #0f172a; border: none; box-shadow: 0 4px 12px rgba(102,166,255,0.3), inset 0 1px 0 rgba(255,255,255,0.3); }
+                #b-stop { background: linear-gradient(135deg, rgba(255,8,68,0.5) 0%, rgba(255,177,153,0.5) 100%); color: white; border: none; box-shadow: 0 4px 12px rgba(255,8,68,0.3), inset 0 1px 0 rgba(255,255,255,0.3); }
                 #bot-timer { font-family: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, monospace; font-size: 13px; color: #007AFF; font-weight: 700; position: relative; z-index: 1; }
                 #bot-log-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 380px; background: linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.65) 100%); backdrop-filter: blur(40px) saturate(180%); -webkit-backdrop-filter: blur(40px) saturate(180%); z-index: 2147483648; padding: 30px; border-radius: 32px; box-shadow: 0 30px 100px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.6); }
                 #l-content::-webkit-scrollbar { width: 6px; }
@@ -262,7 +271,7 @@
 
             document.getElementById('bot-launch-btn').addEventListener('click', () => {
                 GM_setValue(KEYS.RUNNING, true);
-                GM_setValue(KEYS.LAST_RUN_DATE, new Date().toLocaleDateString());
+                GM_setValue(KEYS.LAST_RUN_DATE, new Date().toISOString().slice(0, 10));
                 GM_setValue(KEYS.FORCE_NEXT, true);
                 location.reload();
             });
@@ -435,7 +444,7 @@
 
         renderKW(raw, suffix, type) {
             const className = type === 'api' ? 'suffix-api' : 'suffix-backup';
-            return raw + (suffix ? '<span class="' + className + '">' + this.escapeHtml(suffix) + '</span>' : '');
+            return this.escapeHtml(raw) + (suffix ? '<span class="' + className + '">' + this.escapeHtml(suffix) + '</span>' : '');
         },
 
         escapeHtml(text) {
@@ -475,6 +484,10 @@
             if (st && source) {
                 st.textContent = source;
                 st.style.display = 'block';
+                const c = this.getSourceColor(source);
+                st.style.color = c.color;
+                st.style.background = c.bg;
+                st.style.borderColor = c.border;
             }
         },
 
@@ -487,7 +500,7 @@
                 '<div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05);">' +
                 '<div style="display:flex; justify-content:space-between; font-size:10px; color:#888; margin-bottom:3px;">' +
                 '<span>' + this.escapeHtml(l.time) + '</span>' +
-                '<span style="color:#0078d4; font-weight:800;">' + this.escapeHtml(l.sourceName) + '</span>' +
+                '<span style="color:' + this.getSourceColor(l.sourceName).color + '; font-weight:800;">' + this.escapeHtml(l.sourceName) + '</span>' +
                 '</div>' +
                 this.renderKW(l.raw, l.suffix, l.suffixType) +
                 '</div>'
@@ -740,7 +753,7 @@
 
         run() {
             try {
-                const today = new Date().toLocaleDateString();
+                const today = new Date().toISOString().slice(0, 10);
 
                 if (today !== GM_getValue(KEYS.LAST_DATE, "")) {
                     GM_setValue(KEYS.TODAY_COUNT, 0);
