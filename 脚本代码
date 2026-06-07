@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bing 自动搜索
 // @namespace    http://tampermonkey.net/
-// @version      8.0
-// @description  倒计时优化，计数逻辑优化
+// @version      11.0
+// @description  自动停止功能更新
 // @author       Gemini Assistant (Final Fix)
 // @match        https://www.bing.com/*
 // @match        https://cn.bing.com/*
@@ -54,6 +54,7 @@
         idleTime: [8000, 30000],
         waveSize: 6,
         waveSleepTime: 900000,
+        dailyLimit: 20, // 每日自动停止阈值，按需修改
         apiHot: "https://api.gmya.net/Api/",
         apiSuffix: "https://api.gmya.net/Api/YiYan",
         backupSuffixes: [" 评测", " 分析", " 指南", " 教程", " 报告", " 攻略", " 对比", " 排名",
@@ -78,7 +79,9 @@
         LAST_DATE: 'bot_v48_last_date',
         LAST_RUN_DATE: 'bot_v48_last_run_date',
         ERROR_COUNT: 'bot_v48_error_count',
-        FORCE_NEXT: 'bot_v48_force_next'
+        FORCE_NEXT: 'bot_v48_force_next',
+        AUTO_STOP_TRIG: 'bot_v48_auto_stop_trig',
+        AUTO_STOP_DIS: 'bot_v48_auto_stop_dis'
     };
 
     const Utils = {
@@ -281,8 +284,14 @@
             document.body.appendChild(container);
 
             document.getElementById('bot-launch-btn').addEventListener('click', () => {
+                const today = Utils.getLocalDateStr();
+                const autoStopTrig = GM_getValue(KEYS.AUTO_STOP_TRIG, "");
+                // 如果当日已触发过自动停止，用户手动再次开始 = 关闭当日自动停止功能
+                if (autoStopTrig === today) {
+                    GM_setValue(KEYS.AUTO_STOP_DIS, today);
+                }
                 GM_setValue(KEYS.RUNNING, true);
-                GM_setValue(KEYS.LAST_RUN_DATE, Utils.getLocalDateStr());
+                GM_setValue(KEYS.LAST_RUN_DATE, today);
                 GM_setValue(KEYS.FORCE_NEXT, true);
                 location.reload();
             });
@@ -665,6 +674,9 @@
                 UI.updateCountUI();
             }
 
+
+
+
             const scrollInterval = setInterval(() => {
                 if (!GM_getValue(KEYS.RUNNING, false)) {
                     clearInterval(scrollInterval);
@@ -702,7 +714,18 @@
                     cancelAnimationFrame(uiTimer);
                     clearInterval(scrollInterval);
 
+                    // 检查是否达到每日自动停止阈值
                     const count = GM_getValue(KEYS.TODAY_COUNT, 0);
+                    const today = Utils.getLocalDateStr();
+                    const autoStopTrig = GM_getValue(KEYS.AUTO_STOP_TRIG, "");
+                    const autoStopDis = GM_getValue(KEYS.AUTO_STOP_DIS, "");
+                    if (count >= CONFIG.dailyLimit && autoStopTrig !== today && autoStopDis !== today) {
+                        GM_setValue(KEYS.AUTO_STOP_TRIG, today);
+                        GM_setValue(KEYS.RUNNING, false);
+                        console.log(' 今日已达' +CONFIG.dailyLimit + '次，自动停止');
+                        location.reload();
+                        return;
+                    }
                     let nextWait = Utils.rand(CONFIG.idleTime[0], CONFIG.idleTime[1]);
                     if (count > 0 && count % CONFIG.waveSize === 0) {
                         nextWait = CONFIG.waveSleepTime;
@@ -787,6 +810,13 @@
                         GM_setValue(KEYS.RUNNING, false);
                         console.log('新的一天 (' + today + ')，脚本已自动停止');
                     }
+                }
+
+                // 跨天重置自动停止状态
+
+                if (today !== GM_getValue(KEYS.AUTO_STOP_TRIG, "")) {
+                    GM_setValue(KEYS.AUTO_STOP_TRIG, "");
+                    GM_setValue(KEYS.AUTO_STOP_DIS, "");
                 }
 
                 UI.init();
