@@ -54,7 +54,7 @@
         idleTime: [8000, 30000],
         waveSize: 6,
         waveSleepTime: 900000,
-        dailyLimit: 2, // 每日自动停止阈值，按需修改
+        dailyLimit: 25, // 每日自动停止阈值，按需修改
         apiHot: "https://api.gmya.net/Api/",
         apiSuffix: "https://api.gmya.net/Api/YiYan",
         backupSuffixes: [" 评测", " 分析", " 指南", " 教程", " 报告", " 攻略", " 对比", " 排名",
