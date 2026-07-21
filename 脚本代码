@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bing 自动搜索
 // @namespace    http://tampermonkey.net/
-// @version      12.0
-// @description  bug修复
+// @version      13.0
+// @description  时间逻辑优化
 // @author       Gemini Assistant (Final Fix)
 // @match        https://www.bing.com/*
 // @match        https://cn.bing.com/*
@@ -54,7 +54,7 @@
         idleTime: [8000, 30000],
         waveSize: 6,
         waveSleepTime: 900000,
-        dailyLimit: 25, // 每日自动停止阈值，按需修改
+        dailyLimit: 20, // 每日自动停止阈值，按需修改
         apiHot: "https://api.gmya.net/Api/",
         apiSuffix: "https://api.gmya.net/Api/YiYan",
         backupSuffixes: [" 评测", " 分析", " 指南", " 教程", " 报告", " 攻略", " 对比", " 排名",
@@ -80,6 +80,7 @@
         LAST_RUN_DATE: 'bot_v48_last_run_date',
         ERROR_COUNT: 'bot_v48_error_count',
         FORCE_NEXT: 'bot_v48_force_next',
+        LAST_SEARCH_TIME: 'bot_v48_last_search_time',
         AUTO_STOP_TRIG: 'bot_v48_auto_stop_trig',
         AUTO_STOP_DIS: 'bot_v48_auto_stop_dis'
     };
@@ -730,13 +731,20 @@
                         return;
                     }
                     let nextWait = Utils.rand(CONFIG.idleTime[0], CONFIG.idleTime[1]);
-                    if (count > 0 && count % CONFIG.waveSize === 0) {
+
+                    // 检查是否应该触发长休眠：只有当实际间隔不足长休眠时间时才触发
+                    const lastSearchTime = GM_getValue(KEYS.LAST_SEARCH_TIME, 0);
+                    const actualGap = lastSearchTime > 0 ? (Date.now() - lastSearchTime) : 0;
+                    const shouldWaveSleep = count > 0 && count % CONFIG.waveSize === 0 && actualGap < CONFIG.waveSleepTime;
+
+                    if (shouldWaveSleep) {
                         nextWait = CONFIG.waveSleepTime;
                     }
 
                     const currentTime = Date.now();
                     GM_setValue(KEYS.NEXT_TIME, currentTime + nextWait);
                     GM_setValue(KEYS.START, currentTime);
+                    GM_setValue(KEYS.LAST_SEARCH_TIME, currentTime);
                     location.assign('https://www.bing.com');
                 } else {
                     uiTimer = requestAnimationFrame(updateUI);
@@ -751,7 +759,7 @@
                 const today = Utils.getLocalDateStr();
                 if (today !== GM_getValue(KEYS.LAST_DATE, "")) {
                     GM_setValue(KEYS.TODAY_COUNT, 0);
-                    GM_setValue(KEYS.LAST_DATE, today);
+                    GM_getValue(KEYS.LAST_DATE, today);
                     UI.updateCountUI();
                 }
 
@@ -765,6 +773,22 @@
                 const start = GM_getValue(KEYS.START, now);
                 const forceNext = GM_getValue(KEYS.FORCE_NEXT, false);
 
+                // 检查是否处于长休眠中，且实际已经过去足够长时间
+                const isLongSleep = (next - start) >= (CONFIG.waveSleepTime - 1000);
+                if (isLongSleep && !forceNext) {
+                    const lastSearchTime = GM_getValue(KEYS.LAST_SEARCH_TIME, 0);
+                    if (lastSearchTime > 0 && (now - lastSearchTime) >= CONFIG.waveSleepTime) {
+                        // 实际已经过去超过长休眠时间，跳过剩余等待
+                        console.log('长休眠已过期，跳过等待 (已过去 ' + Utils.formatTime(now - lastSearchTime) + ')');
+                        if (!window.isExec) {
+                            window.isExec = true;
+                            cancelAnimationFrame(waitTimer);
+                            this.fetch();
+                        }
+                        return;
+                    }
+                }
+
                 if (forceNext || now >= next) {
                     if (!window.isExec) {
                         window.isExec = true;
@@ -777,17 +801,17 @@
                 } else {
                     const prog = ((next - now) / (next - start)) * 100;
                     const timeStr = Utils.formatTime(next - now);
-                    const isLongSleep = (next - start) >= (CONFIG.waveSleepTime - 1000);
+                    const isLongSleepDisplay = (next - start) >= (CONFIG.waveSleepTime - 1000);
 
                     UI.update(
-                        isLongSleep ? I18N.STATUS_SLEEP : I18N.STATUS_WAIT,
-                        isLongSleep ? I18N.TEXT_SLEEPING : I18N.TEXT_WAITING,
+                        isLongSleepDisplay ? I18N.STATUS_SLEEP : I18N.STATUS_WAIT,
+                        isLongSleepDisplay ? I18N.TEXT_SLEEPING : I18N.TEXT_WAITING,
                         prog,
                         timeStr,
                         null,
                         "",
                         "api",
-                        isLongSleep
+                        isLongSleepDisplay
                     );
                     waitTimer = requestAnimationFrame(updateWaitUI);
                 }
