@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bing 自动搜索
 // @namespace    http://tampermonkey.net/
-// @version      13.0
-// @description  时间逻辑优化
+// @version      13.2
+// @description  时间逻辑优化；达到每日上限后不记忆开启状态
 // @author       Gemini Assistant (Final Fix)
 // @match        https://www.bing.com/*
 // @match        https://cn.bing.com/*
@@ -82,12 +82,33 @@
         FORCE_NEXT: 'bot_v48_force_next',
         LAST_SEARCH_TIME: 'bot_v48_last_search_time',
         AUTO_STOP_TRIG: 'bot_v48_auto_stop_trig',
-        AUTO_STOP_DIS: 'bot_v48_auto_stop_dis'
+        AUTO_STOP_DIS: 'bot_v48_auto_stop_dis',
+        SESSION_CONTINUE: 'bot_v48_session_continue'
     };
 
     const Utils = {
         sleep: ms => new Promise(r => setTimeout(r, ms)),
         rand: (min, max) => Math.floor(Math.random() * (max - min + 1) + min),
+
+        // 仅当前浏览器会话有效的“继续运行”标记
+        // sessionStorage：刷新/页面跳转仍保留，浏览器关闭重开后清空
+        setSessionContinue(on) {
+            try {
+                if (on) sessionStorage.setItem(KEYS.SESSION_CONTINUE, Utils.getLocalDateStr());
+                else sessionStorage.removeItem(KEYS.SESSION_CONTINUE);
+            } catch (e) {}
+        },
+        hasSessionContinue() {
+            try {
+                return sessionStorage.getItem(KEYS.SESSION_CONTINUE) === Utils.getLocalDateStr();
+            } catch (e) {
+                return false;
+            }
+        },
+        isRunning() {
+            return GM_getValue(KEYS.RUNNING, false) || Utils.hasSessionContinue();
+        },
+
         getLocalDateStr() {
             const d = new Date();
             return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -286,15 +307,23 @@
 
             document.getElementById('bot-launch-btn').addEventListener('click', () => {
                 const today = Utils.getLocalDateStr();
-                const autoStopTrig = GM_getValue(KEYS.AUTO_STOP_TRIG, "");
-                if (autoStopTrig === today) {
-                    GM_setValue(KEYS.AUTO_STOP_DIS, today);
-                }
-                GM_setValue(KEYS.RUNNING, true);
+                const limitReached = GM_getValue(KEYS.AUTO_STOP_TRIG, "") === today;
+
                 GM_setValue(KEYS.LAST_RUN_DATE, today);
                 GM_setValue(KEYS.FORCE_NEXT, true);
-                location.reload();
+
+                if (limitReached) {
+                    // 今日已达上限：仅在当前会话继续，且回到首页重新开始
+                    Utils.setSessionContinue(true);
+                    GM_setValue(KEYS.RUNNING, false);
+                    location.assign('https://www.bing.com');
+                } else {
+                    Utils.setSessionContinue(false);
+                    GM_setValue(KEYS.RUNNING, true);
+                    location.reload();
+                }
             });
+
 
             document.getElementById('b-skip').addEventListener('click', () => {
                 GM_setValue(KEYS.NEXT_TIME, 0);
@@ -303,6 +332,7 @@
 
             document.getElementById('b-stop').addEventListener('click', () => {
                 GM_setValue(KEYS.RUNNING, false);
+                Utils.setSessionContinue(false);
                 location.reload();
             });
 
@@ -321,7 +351,7 @@
                 if (modal) modal.style.display = 'none';
             });
 
-            const isRunning = GM_getValue(KEYS.RUNNING, false);
+            const isRunning = Utils.isRunning();
             document.getElementById('bot-launch-btn').style.display = isRunning ? 'none' : 'flex';
             document.getElementById('bot-panel').style.display = isRunning ? 'block' : 'none';
         },
@@ -577,8 +607,8 @@
                         try {
                             const doc = new DOMParser().parseFromString(res.responseText, "text/html");
                             const words = Array.from(doc.querySelectorAll('.c-single-text-ellipsis'))
-                                .map(e => e.textContent?.trim())
-                                .filter(Boolean);
+                            .map(e => e.textContent?.trim())
+                            .filter(Boolean);
                             await this.processWords(words, "百度(备用)");
                             resolve();
                         } catch(e) {
@@ -683,7 +713,7 @@
             }
 
             const scrollInterval = setInterval(() => {
-                if (!GM_getValue(KEYS.RUNNING, false)) {
+                if (!Utils.isRunning()) {
                     clearInterval(scrollInterval);
                     return;
                 }
@@ -695,7 +725,7 @@
 
             let uiTimer;
             const updateUI = () => {
-                if (!GM_getValue(KEYS.RUNNING, false)) {
+                if (!Utils.isRunning()) {
                     cancelAnimationFrame(uiTimer);
                     clearInterval(scrollInterval);
                     return;
@@ -721,12 +751,12 @@
 
                     const count = GM_getValue(KEYS.TODAY_COUNT, 0);
                     const today = Utils.getLocalDateStr();
-                    const autoStopTrig = GM_getValue(KEYS.AUTO_STOP_TRIG, "");
-                    const autoStopDis = GM_getValue(KEYS.AUTO_STOP_DIS, "");
-                    if (count >= CONFIG.dailyLimit && autoStopTrig !== today && autoStopDis !== today) {
+                    // 达到每日上限且本次会话未选择“继续” -> 自动停止，并清除开启状态记忆
+                    if (count >= CONFIG.dailyLimit && !Utils.hasSessionContinue()) {
                         GM_setValue(KEYS.AUTO_STOP_TRIG, today);
                         GM_setValue(KEYS.RUNNING, false);
-                        console.log(' 今日已达' + CONFIG.dailyLimit + '次，自动停止');
+                        Utils.setSessionContinue(false);
+                        console.log(' 今日已达' + CONFIG.dailyLimit + '次，自动停止（不记忆开启状态）');
                         location.reload();
                         return;
                     }
@@ -763,7 +793,7 @@
                     UI.updateCountUI();
                 }
 
-                if (!GM_getValue(KEYS.RUNNING, false)) {
+                if (!Utils.isRunning()) {
                     cancelAnimationFrame(waitTimer);
                     return;
                 }
@@ -829,13 +859,23 @@
                 }
 
                 const lastRunDate = GM_getValue(KEYS.LAST_RUN_DATE, "");
-                const isRunning = GM_getValue(KEYS.RUNNING, false);
+                const isRunning = Utils.isRunning();
 
                 if (today !== lastRunDate) {
                     if (lastRunDate && isRunning) {
                         GM_setValue(KEYS.RUNNING, false);
+                        Utils.setSessionContinue(false);
                         console.log('新的一天 (' + today + ')，脚本已自动停止');
                     }
+                }
+
+                // 兼容旧版本残留：今日已达上限且不是本会话的“手动继续”，
+                // 则清除持久化的开启状态，重启浏览器后不会自动恢复
+                if (GM_getValue(KEYS.AUTO_STOP_TRIG, "") === today &&
+                    GM_getValue(KEYS.RUNNING, false) &&
+                    !Utils.hasSessionContinue()) {
+                    GM_setValue(KEYS.RUNNING, false);
+                    console.log('今日已达上限，已清除开启状态记忆');
                 }
 
                 if (today !== GM_getValue(KEYS.AUTO_STOP_TRIG, "")) {
@@ -846,7 +886,7 @@
                 UI.init();
                 UI.updateCountUI();
 
-                if (GM_getValue(KEYS.RUNNING, false)) {
+                if (Utils.isRunning()) {
                     this.startLogic();
                 }
             } catch (error) {
